@@ -1,57 +1,65 @@
-"use client"
+"use client";
 
 import { motion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 import { Plus } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { ResetButtons } from "./ResetButtons";
 import { ImageUploader } from "../components/ImageUploader";
+import { useAuth } from "../context/AuthContext";
 
-const STORAGE_KEY = "nutriLensMetrics";
+type Metric = {
+    name: string;
+    value: number;
+    current: number;
+    max: number;
+    unit: string;
+};
+
+type MetricType = "fit" | "bodyBuilder" | "gainWeight" | "loseWeight";
 
 const defaultMetrics = [
-  { name: 'Calories', value: 0, current: 0, max: 2000, unit: 'kcal' },
-  { name: 'Total Fat', value: 0, current: 0, max: 78, unit: 'g' },
-  { name: 'Cholesterol', value: 0, current: 0, max: 300, unit: 'mg' },
-  { name: 'Sodium', value: 0, current: 0, max: 2300, unit: 'mg' },
-  { name: 'Total Carbohydrates', value: 0, current: 0, max: 275, unit: 'g' },
-  { name: 'Protein', value: 0, current: 0, max: 50, unit: 'g' }
+    { name: "Calories", value: 0, current: 0, max: 2000, unit: "kcal" },
+    { name: "Total Fat", value: 0, current: 0, max: 78, unit: "g" },
+    { name: "Cholesterol", value: 0, current: 0, max: 300, unit: "mg" },
+    { name: "Sodium", value: 0, current: 0, max: 2300, unit: "mg" },
+    { name: "Total Carbohydrates", value: 0, current: 0, max: 275, unit: "g" },
+    { name: "Protein", value: 0, current: 0, max: 50, unit: "g" },
 ];
 
-// Custom metrics for each button
 const metricsOptions = {
-  fit: [
-    { name: 'Calories', max: 1800 },
-    { name: 'Total Fat', max: 60 },
-    { name: 'Cholesterol', max: 200 },
-    { name: 'Sodium', max: 2000 },
-    { name: 'Total Carbohydrates', max: 250 },
-    { name: 'Protein', max: 60 }
-  ],
-  bodyBuilder: [
-    { name: 'Calories', max: 2500 },
-    { name: 'Total Fat', max: 80 },
-    { name: 'Cholesterol', max: 300 },
-    { name: 'Sodium', max: 2400 },
-    { name: 'Total Carbohydrates', max: 300 },
-    { name: 'Protein', max: 120 }
-  ],
-  gainWeight: [
-    { name: 'Calories', max: 3000 },
-    { name: 'Total Fat', max: 100 },
-    { name: 'Cholesterol', max: 350 },
-    { name: 'Sodium', max: 2500 },
-    { name: 'Total Carbohydrates', max: 350 },
-    { name: 'Protein', max: 100 }
-  ],
-  loseWeight: [
-    { name: 'Calories', max: 1500 },
-    { name: 'Total Fat', max: 50 },
-    { name: 'Cholesterol', max: 200 },
-    { name: 'Sodium', max: 1800 },
-    { name: 'Total Carbohydrates', max: 200 },
-    { name: 'Protein', max: 70 }
-  ]
+    fit: [
+        { name: "Calories", max: 1800 },
+        { name: "Total Fat", max: 60 },
+        { name: "Cholesterol", max: 200 },
+        { name: "Sodium", max: 2000 },
+        { name: "Total Carbohydrates", max: 250 },
+        { name: "Protein", max: 60 },
+    ],
+    bodyBuilder: [
+        { name: "Calories", max: 2500 },
+        { name: "Total Fat", max: 80 },
+        { name: "Cholesterol", max: 300 },
+        { name: "Sodium", max: 2400 },
+        { name: "Total Carbohydrates", max: 300 },
+        { name: "Protein", max: 120 },
+    ],
+    gainWeight: [
+        { name: "Calories", max: 3000 },
+        { name: "Total Fat", max: 100 },
+        { name: "Cholesterol", max: 350 },
+        { name: "Sodium", max: 2500 },
+        { name: "Total Carbohydrates", max: 350 },
+        { name: "Protein", max: 100 },
+    ],
+    loseWeight: [
+        { name: "Calories", max: 1500 },
+        { name: "Total Fat", max: 50 },
+        { name: "Cholesterol", max: 200 },
+        { name: "Sodium", max: 1800 },
+        { name: "Total Carbohydrates", max: 200 },
+        { name: "Protein", max: 70 },
+    ],
 };
 
 export function Demo() {
@@ -59,105 +67,314 @@ export function Demo() {
     const [ref, inView] = useInView({
         triggerOnce: true,
         threshold: 0.1,
-      });
-      type MetricType = 'fit' | 'bodyBuilder' | 'gainWeight' | 'loseWeight';
+    });
 
-  const setCustomMetrics = (type: MetricType) => {
-    const selectedMetrics = metricsOptions[type];
-    setMetrics((currentMetrics) =>
-      currentMetrics.map((metric, index) => ({
-        ...metric,
-        max: selectedMetrics[index]?.max ?? metric.max
-      }))
-    );
-  };
-  const handleDropdownChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
- setCustomMetrics(e.target.value as MetricType);
-  }
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setMetrics(defaultMetrics.map((defaultMetric, index) => ({
-          ...defaultMetric,
-          value: parsed[index]?.value ?? defaultMetric.value,
-          max: parsed[index]?.max ?? defaultMetric.max
-        })));
-      } catch {
-        // If parsing fails, keep default metrics
-      }
-    }
-  }, []);
-  const [metrics, setMetrics] = useState(defaultMetrics);
-
-  const hasNonDefaultMax = metrics.some((metric, index) => 
-    metric.max !== defaultMetrics[index].max
-  );
-
+    const { isAuthenticated } = useAuth();
+    const [metrics, setMetrics] = useState<Metric[]>(defaultMetrics);
+    const [selectedGoal, setSelectedGoal] = useState<MetricType | "">("");
     const [isLoading, setIsLoading] = useState(false);
     const [ingredients, setIngredients] = useState<string>("");
     const [imageData, setImageData] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    // Fetch user data when authenticated
     useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
+        if (!isAuthenticated) return;
+
+        // In Demo.tsx, update the fetch call:
+
+        // In Demo.tsx, update the fetch logic:
+
+        // Update the fetch user data function to properly handle errors
+        const fetchUserData = async () => {
+            if (!isAuthenticated) return;
+
             try {
-                const parsed = JSON.parse(saved);
-                setMetrics(defaultMetrics.map((defaultMetric, index) => ({
-                    ...defaultMetric,
-                    value: parsed[index]?.value ?? defaultMetric.value,
-                    max: parsed[index]?.max ?? defaultMetric.max
-                })));
-            } catch {
-                // If parsing fails, keep default metrics
+                const token = localStorage.getItem("access_token");
+                if (!token) return;
+
+                const response = await fetch("http://localhost:8000/api/v1/user-nutrition/", {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                if (!response.ok) throw new Error("Failed to fetch user data");
+
+                const data = await response.json();
+                console.log("Fetched data:", data); // Debug log
+
+                setMetrics((prev) =>
+                    prev.map((metric) => {
+                        const name = metric.name.toLowerCase().replace(" ", "_");
+                        // Special handling for carbohydrates
+                        const value = name === "total_carbohydrates" ? data["carbohydrates"] : data[name];
+                        const maxValue = name === "total_carbohydrates" ? data["carbohydrates_limit"] : data[`${name}_limit`];
+
+                        return {
+                            ...metric,
+                            value: value || 0,
+                            max: maxValue || metric.max,
+                        };
+                    })
+                );
+
+                if (data.selected_goal) {
+                    setSelectedGoal(data.selected_goal);
+                }
+            } catch (error) {
+                console.error("Failed to fetch user data:", error);
             }
+        };
+
+        fetchUserData();
+    }, [isAuthenticated]);
+
+    // In Demo.tsx, modify the saveUserData function and add a proper user check
+
+    // Update the saveUserData function to handle carbohydrates correctly
+    const saveUserData = useCallback(async () => {
+        if (!isAuthenticated) return;
+
+        try {
+            const token = localStorage.getItem("access_token");
+            if (!token) return;
+
+            // Fix the naming for carbohydrates
+            const data = {
+                calories: metrics[0].value,
+                total_fat: metrics[1].value,
+                cholesterol: metrics[2].value,
+                sodium: metrics[3].value,
+                carbohydrates: metrics[4].value, // Make sure index is correct
+                protein: metrics[5].value,
+                calories_limit: metrics[0].max,
+                total_fat_limit: metrics[1].max,
+                cholesterol_limit: metrics[2].max,
+                sodium_limit: metrics[3].max,
+                carbohydrates_limit: metrics[4].max, // Make sure index is correct
+                protein_limit: metrics[5].max,
+                selected_goal: selectedGoal,
+            };
+
+            console.log("Saving data:", data); // Debug log
+
+            const response = await fetch("http://localhost:8000/api/v1/user-nutrition/", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(data),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to save data");
+            }
+
+            const savedData = await response.json();
+            console.log("Saved data:", savedData); // Debug log
+        } catch (error) {
+            console.error("Failed to save user data:", error);
         }
-    }, []);
+    }, [metrics, selectedGoal, isAuthenticated]);
+    // Add data restoration logic
+    // Update the data fetching logic in useEffect
+    useEffect(() => {
+        const fetchUserData = async () => {
+            if (!isAuthenticated) return;
+
+            try {
+                const token = localStorage.getItem("access_token");
+                if (!token) return;
+
+                const response = await fetch("http://localhost:8000/api/v1/user-nutrition/", {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                if (!response.ok) throw new Error("Failed to fetch user data");
+
+                const data = await response.json();
+                console.log("Received data:", data); // Debug log
+
+                setMetrics((prev) =>
+                    prev.map((metric) => {
+                        // Handle field name mapping
+                        let value = 0;
+                        let maxValue = metric.max;
+
+                        if (metric.name === "Total Carbohydrates") {
+                            value = data.carbohydrates || 0;
+                            maxValue = data.carbohydrates_limit || metric.max;
+                        } else {
+                            const fieldName = metric.name.toLowerCase().replace(/\s+/g, "_");
+                            value = data[fieldName] || 0;
+                            maxValue = data[`${fieldName}_limit`] || metric.max;
+                        }
+
+                        console.log(`Mapping ${metric.name}:`, { value, maxValue }); // Debug log
+
+                        return {
+                            ...metric,
+                            value: value,
+                            max: maxValue,
+                        };
+                    })
+                );
+
+                if (data.selected_goal) {
+                    setSelectedGoal(data.selected_goal);
+                }
+            } catch (error) {
+                console.error("Failed to fetch user data:", error);
+            }
+        };
+
+        fetchUserData();
+    }, [isAuthenticated]);
+
+    const setCustomMetrics = (type: MetricType) => {
+        const selectedMetrics = metricsOptions[type];
+        setMetrics((currentMetrics) =>
+            currentMetrics.map((metric, index) => ({
+                ...metric,
+                max: selectedMetrics[index]?.max ?? metric.max,
+            }))
+        );
+    };
+
+    const handleDropdownChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const goal = e.target.value as MetricType;
+        setSelectedGoal(goal);
+        setCustomMetrics(goal);
+        saveUserData();
+    };
+
+    // Update handleMaxChange
+    const handleMaxChange = (index: number, value: string) => {
+        const newValue = value === "" ? 0 : Math.max(0, parseInt(value));
+        if (!isNaN(newValue)) {
+            setMetrics((current) => current.map((metric, i) => (i === index ? { ...metric, max: newValue } : metric)));
+        }
+    };
+
+    // Update the addToDailyTotal function
+    const addToDailyTotal = () => {
+        setMetrics((current) =>
+            current.map((metric) => ({
+                ...metric,
+                value: metric.value + metric.current,
+            }))
+        );
+    };
+    // In Demo.tsx, update the resetProgress function
+    const resetProgress = useCallback(async () => {
+        try {
+            // First update local state
+            setMetrics((current) =>
+                current.map((metric) => ({
+                    ...metric,
+                    value: 0,
+                }))
+            );
+
+            // Then update database
+            const token = localStorage.getItem("access_token");
+            if (!token || !isAuthenticated) return;
+
+            const data = {
+                calories: 0,
+                total_fat: 0,
+                cholesterol: 0,
+                sodium: 0,
+                carbohydrates: 0,
+                protein: 0,
+                calories_limit: metrics[0].max,
+                total_fat_limit: metrics[1].max,
+                cholesterol_limit: metrics[2].max,
+                sodium_limit: metrics[3].max,
+                carbohydrates_limit: metrics[4].max,
+                protein_limit: metrics[5].max,
+                selected_goal: selectedGoal,
+            };
+
+            const response = await fetch("http://localhost:8000/api/v1/user-nutrition/", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(data),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to reset progress");
+            }
+        } catch (error) {
+            console.error("Failed to reset progress:", error);
+        }
+    }, [metrics, selectedGoal, isAuthenticated]);
+
+    // Update resetMaxValues to include database persistence
+    const resetMaxValues = useCallback(async () => {
+        try {
+            // First update local state
+            setMetrics((current) =>
+                current.map((metric, index) => ({
+                    ...metric,
+                    max: defaultMetrics[index].max,
+                }))
+            );
+            setSelectedGoal("");
+
+            // Then update database
+            const token = localStorage.getItem("access_token");
+            if (!token || !isAuthenticated) return;
+
+            const data = {
+                calories: metrics[0].value,
+                total_fat: metrics[1].value,
+                cholesterol: metrics[2].value,
+                sodium: metrics[3].value,
+                carbohydrates: metrics[4].value,
+                protein: metrics[5].value,
+                calories_limit: defaultMetrics[0].max,
+                total_fat_limit: defaultMetrics[1].max,
+                cholesterol_limit: defaultMetrics[2].max,
+                sodium_limit: defaultMetrics[3].max,
+                carbohydrates_limit: defaultMetrics[4].max,
+                protein_limit: defaultMetrics[5].max,
+                selected_goal: "",
+            };
+
+            const response = await fetch("http://localhost:8000/api/v1/user-nutrition/", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(data),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to reset max values");
+            }
+        } catch (error) {
+            console.error("Failed to reset max values:", error);
+        }
+    }, [metrics, isAuthenticated]);
 
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(
-            metrics.map(({ value, max }) => ({ value, max }))
-        ));
-    }, [metrics]);
-
-    const handleMaxChange = (index: number, value: string) => {
-        const newValue = value === '' ? 0 : Math.max(0, parseInt(value));
-        if (!isNaN(newValue)) {
-            setMetrics(current => current.map((metric, i) => 
-                i === index ? { ...metric, max: newValue } : metric
-            ));
+        if (isAuthenticated && metrics.some((metric) => metric.max !== defaultMetrics[0].max)) {
+            saveUserData();
         }
-    };
+    }, [metrics, isAuthenticated, saveUserData]);
 
-    const addToDailyTotal = () => {
-        setMetrics(current => current.map(metric => ({
-            ...metric,
-            value: metric.value + metric.current
-        })));
-        
-        progressSectionRef.current?.scrollIntoView({ 
-            behavior: 'smooth',
-            block: 'start'
-        });
-    };
-
-    const resetProgress = () => {
-        setMetrics(current => current.map(metric => ({
-            ...metric,
-            value: 0
-        })));
-    };
-
-    const resetMaxValues = () => {
-        setMetrics(current => current.map((metric, index) => ({
-            ...metric,
-            max: defaultMetrics[index].max
-        })));
-    };
-
-    const preventInvalidInput = (e: { key: string; preventDefault: () => void; }) => {
+    const preventInvalidInput = (e: { key: string; preventDefault: () => void }) => {
         const allowedKeys = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"];
         if (allowedKeys.includes(e.key)) return;
         if (["-", ".", "e"].includes(e.key) || isNaN(Number(e.key))) {
@@ -190,11 +407,11 @@ export function Demo() {
                 method: "POST",
                 body: formData,
             });
-            
+
             if (!response.ok) {
                 throw new Error("Unable to process the image. Please try again.");
             }
-            
+
             const data = await response.json();
 
             if (data.error) {
@@ -203,12 +420,14 @@ export function Demo() {
 
             setImageData(URL.createObjectURL(file));
             setIngredients(data.ingredients || "");
-            
+
             if (Array.isArray(data.nutrition) && data.nutrition.length === 6) {
-                setMetrics(current => current.map((metric, index) => ({
-                    ...metric,
-                    current: data.nutrition[index] || 0,
-                })));
+                setMetrics((current) =>
+                    current.map((metric, index) => ({
+                        ...metric,
+                        current: data.nutrition[index] || 0,
+                    }))
+                );
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : "An error occurred while processing the image");
@@ -222,21 +441,28 @@ export function Demo() {
         setImageData(null);
         setError(null);
         setIngredients("");
-        setMetrics(current => current.map(metric => ({
-            ...metric,
-            current: 0
-        })));
+        setMetrics((current) =>
+            current.map((metric) => ({
+                ...metric,
+                current: 0,
+            }))
+        );
     };
 
     const formatIngredients = (ingredients: string) => {
         if (!ingredients) return null;
-        return ingredients.split('\n').filter(Boolean).map((ingredient, index) => (
-            <li key={index} className="mb-2 last:mb-0 flex items-start">
-                <span className="mr-2">•</span>
-                <span>{ingredient.trim()}</span>
-            </li>
-        ));
+        return ingredients
+            .split("\n")
+            .filter(Boolean)
+            .map((ingredient, index) => (
+                <li key={index} className="mb-2 last:mb-0 flex items-start">
+                    <span className="mr-2">•</span>
+                    <span>{ingredient.trim()}</span>
+                </li>
+            ));
     };
+
+    const hasNonDefaultMax = metrics.some((metric, index) => metric.max !== defaultMetrics[index].max);
 
     return (
         <section id="demo" className="pt-32 pb-16 bg-black">
@@ -247,27 +473,13 @@ export function Demo() {
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={inView ? { opacity: 1, scale: 1 } : {}} className="bg-gray-900 rounded-xl p-8 mb-8">
-                    <ImageUploader
-                        isLoading={isLoading}
-                        error={error}
-                        imageData={imageData}
-                        onImageUpload={handleImageUpload}
-                        onImageRemove={removeImage}
-                    />
+                    <ImageUploader isLoading={isLoading} error={error} imageData={imageData} onImageUpload={handleImageUpload} onImageRemove={removeImage} />
                 </motion.div>
 
                 <div className="grid md:grid-cols-2 gap-8">
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={inView ? { opacity: 1, scale: 1 } : {}} className="bg-gray-900 rounded-xl p-6">
                         <h3 className="text-xl font-semibold text-white mb-4">Detected Ingredients</h3>
-                        <div className="text-gray-400 h-[280px] overflow-y-auto">
-                            {ingredients ? (
-                                <ul className="text-gray-400 list-none">
-                                    {formatIngredients(ingredients)}
-                                </ul>
-                            ) : (
-                                <p className="text-center text-gray-500 italic">No ingredients detected yet</p>
-                            )}
-                        </div>
+                        <div className="text-gray-400 h-[280px] overflow-y-auto">{ingredients ? <ul className="text-gray-400 list-none">{formatIngredients(ingredients)}</ul> : <p className="text-center text-gray-500 italic">No ingredients detected yet</p>}</div>
                     </motion.div>
 
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={inView ? { opacity: 1, scale: 1 } : {}} className="bg-gray-900 rounded-xl p-6">
@@ -306,8 +518,10 @@ export function Demo() {
                     <div className="w-[calc(48rem+1rem)] flex flex-col space-y-6">
                         <div className="flex justify-between items-center">
                             <h3 className="text-xl font-semibold text-white">Daily Progress</h3>
-                            <label htmlFor="metric-select" className="text-white mb- block"> </label>
-       
+                            <label htmlFor="metric-select" className="text-white mb- block">
+                                {" "}
+                            </label>
+
                             <ResetButtons hasNonDefaultMax={hasNonDefaultMax} onResetMaxValues={resetMaxValues} onResetProgress={resetProgress} />
                         </div>
 
@@ -317,17 +531,7 @@ export function Demo() {
                                     <div className="relative inline-block">
                                         <svg className="w-48 h-48 transform -rotate-90">
                                             <circle cx="96" cy="96" r="88" fill="transparent" stroke="#1f2937" strokeWidth="12" />
-                                            <circle 
-                                                cx="96" 
-                                                cy="96" 
-                                                r="88" 
-                                                fill="transparent" 
-                                                stroke="#38bdf8" 
-                                                strokeWidth="12" 
-                                                strokeDasharray={2 * Math.PI * 88} 
-                                                strokeDashoffset={2 * Math.PI * 88 * Math.max(0, Math.min(1, 1 - metric.value / metric.max))} 
-                                                className="transition-all duration-500" 
-                                            />
+                                            <circle cx="96" cy="96" r="88" fill="transparent" stroke="#38bdf8" strokeWidth="12" strokeDasharray={2 * Math.PI * 88} strokeDashoffset={2 * Math.PI * 88 * Math.max(0, Math.min(1, 1 - metric.value / metric.max))} className="transition-all duration-500" />
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                                             <span className="text-3xl text-white font-semibold">{metric.value}</span>
@@ -342,22 +546,19 @@ export function Demo() {
                                 </div>
                             ))}
                         </div>
-                        {/* Add four rectangular buttons */}
+
                         <div className="mt-8">
-        <label htmlFor="metric-select" className="text-white mb-2 block"></label>
-        <select
-          id="metric-select"
-          onChange={handleDropdownChange}
-          defaultValue = {""}
-          className="w-full py-2 px-3 rounded-lg bg-gray-900 text-gray-300 border border-gray-700 hover:border-sky-400 focus:border-sky-500 focus:outline-none transition-colors"
-        >
-          <option value="" disabled>Select your goal</option>
-          <option value="fit">Fit</option>
-          <option value="bodyBuilder">Body-Builder</option>
-          <option value="gainWeight">Gain Weight</option>
-          <option value="loseWeight">Lose Weight</option>
-        </select>
-      </div>
+                            <label htmlFor="metric-select" className="text-white mb-2 block"></label>
+                            <select id="metric-select" onChange={handleDropdownChange} value={selectedGoal} className="w-full py-2 px-3 rounded-lg bg-gray-900 text-gray-300 border border-gray-700 hover:border-sky-400 focus:border-sky-500 focus:outline-none transition-colors">
+                                <option value="" disabled>
+                                    Select your goal
+                                </option>
+                                <option value="fit">Fit</option>
+                                <option value="bodyBuilder">Body-Builder</option>
+                                <option value="gainWeight">Gain Weight</option>
+                                <option value="loseWeight">Lose Weight</option>
+                            </select>
+                        </div>
                     </div>
                 </motion.div>
             </div>

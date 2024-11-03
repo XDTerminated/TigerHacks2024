@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
-import { X, Image as ImageIcon, Loader2 } from 'lucide-react';
-import Image from 'next/image';
+import { useState, useCallback } from "react";
+import { X, Image as ImageIcon, Loader2 } from "lucide-react";
+import Image from "next/image";
 
 interface ImageUploaderProps {
     isLoading: boolean;
@@ -15,71 +15,74 @@ const CORS_PROXY = "https://corsproxy.io/?";
 export function ImageUploader({ isLoading, error, imageData, onImageUpload, onImageRemove }: ImageUploaderProps) {
     const [dragActive, setDragActive] = useState(false);
 
-    const handleDrag = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (imageData || isLoading) return;
-        
-        if (e.type === "dragenter" || e.type === "dragover") {
-            setDragActive(true);
-        } else if (e.type === "dragleave") {
+    const handleDrag = useCallback(
+        (e: React.DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (imageData || isLoading) return;
+
+            if (e.type === "dragenter" || e.type === "dragover") {
+                setDragActive(true);
+            } else if (e.type === "dragleave") {
+                setDragActive(false);
+            }
+        },
+        [imageData, isLoading]
+    );
+
+    const processImageUrl = useCallback(
+        async (url: string) => {
+            try {
+                const response = await fetch(CORS_PROXY + encodeURIComponent(url));
+                if (!response.ok) throw new Error("Failed to fetch image");
+                const blob = await response.blob();
+                const file = new File([blob], "image.jpg", { type: blob.type });
+                onImageUpload(file);
+            } catch (error) {
+                console.error("Error processing image URL:", error);
+            }
+        },
+        [onImageUpload]
+    );
+
+    const handleDrop = useCallback(
+        async (e: React.DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (imageData || isLoading) return;
+
             setDragActive(false);
-        }
-    }, [imageData, isLoading]);
 
-    const processImageUrl = async (url: string) => {
-        try {
-            const response = await fetch(CORS_PROXY + encodeURIComponent(url));
-            if (!response.ok) throw new Error('Failed to fetch image');
-            const blob = await response.blob();
-            const file = new File([blob], 'image.jpg', { type: blob.type });
-            onImageUpload(file);
-        } catch (error) {
-            console.error('Error processing image URL:', error);
-        }
-    };
+            // Handle URL drops
+            const url = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+            if (url && url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+                await processImageUrl(url);
+                return;
+            }
 
-    const handleDrop = useCallback(async (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (imageData || isLoading) return;
-        
-        setDragActive(false);
+            // Handle file drops
+            const file = e.dataTransfer.files?.[0];
+            if (file) {
+                onImageUpload(file);
+            }
+        },
+        [imageData, isLoading, onImageUpload, processImageUrl]
+    );
 
-        // Handle URL drops
-        const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
-        if (url && url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-            await processImageUrl(url);
-            return;
-        }
-
-        // Handle file drops
-        const file = e.dataTransfer.files?.[0];
-        if (file) {
-            onImageUpload(file);
-        }
-    }, [imageData, isLoading, onImageUpload]);
-
-    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        e.preventDefault();
-        if (e.target.files?.[0]) {
-            onImageUpload(e.target.files[0]);
-        }
-    }, [onImageUpload]);
+    const handleChange = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            e.preventDefault();
+            if (e.target.files?.[0]) {
+                onImageUpload(e.target.files[0]);
+            }
+        },
+        [onImageUpload]
+    );
 
     return (
         <div
             className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors 
-            ${imageData 
-                ? 'border-gray-700'
-                : error 
-                    ? dragActive 
-                        ? "border-red-500 bg-red-500/20" 
-                        : "border-red-400 bg-red-400/10"
-                    : dragActive
-                        ? "border-sky-400 bg-sky-400/10"
-                        : "border-gray-700"
-            }`}
+            ${imageData ? "border-gray-700" : error ? (dragActive ? "border-red-500 bg-red-500/20" : "border-red-400 bg-red-400/10") : dragActive ? "border-sky-400 bg-sky-400/10" : "border-gray-700"}`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -99,15 +102,9 @@ export function ImageUploader({ isLoading, error, imageData, onImageUpload, onIm
                 </div>
             ) : (
                 <>
-                    <ImageIcon className={`h-12 w-12 mx-auto mb-4 ${error ? 'text-red-500' : 'text-sky-400'}`} />
-                    <p className={`mb-4 ${error ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
-                        {error || "Drag and drop your image or URL here, or click to browse"}
-                    </p>
-                    <label className={`px-6 py-2 rounded-lg transition-colors cursor-pointer inline-block ${
-                        error 
-                            ? 'bg-red-500 hover:bg-red-600 text-white' 
-                            : 'bg-sky-600 hover:bg-sky-700 text-white'
-                    }`}>
+                    <ImageIcon className={`h-12 w-12 mx-auto mb-4 ${error ? "text-red-500" : "text-sky-400"}`} />
+                    <p className={`mb-4 ${error ? "text-red-500 font-medium" : "text-gray-400"}`}>{error || "Drag and drop your image or URL here, or click to browse"}</p>
+                    <label className={`px-6 py-2 rounded-lg transition-colors cursor-pointer inline-block ${error ? "bg-red-500 hover:bg-red-600 text-white" : "bg-sky-600 hover:bg-sky-700 text-white"}`}>
                         Upload Image
                         <input type="file" className="hidden" accept="image/*" onChange={handleChange} />
                     </label>

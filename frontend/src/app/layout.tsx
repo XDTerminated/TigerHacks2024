@@ -1,35 +1,22 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import "./globals.css";
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+import { AuthProvider } from "../context/AuthContext";
+import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
-  title: "NutriLens",
-  description: "NutriLens uses cutting-edge AI to make nutrition tracking effortless",
+    title: "NutriLens",
+    description: "NutriLens uses cutting-edge AI to make nutrition tracking effortless",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
-    </html>
-  );
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <html lang="en">
+            <body>
+                <AuthProvider>
+                    {children}
+                    <Toaster position="top-right" />
+                </AuthProvider>
+            </body>
+        </html>
+    );
 }

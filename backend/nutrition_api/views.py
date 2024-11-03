@@ -6,6 +6,12 @@ import base64
 import google.generativeai as genai
 import PIL.Image
 import io
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .models import UserNutritionData
+from .serializers import UserNutritionDataSerializer
 
 load_dotenv()
 
@@ -113,3 +119,23 @@ def NutritionFacts(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def user_nutrition_data(request):
+    try:
+        nutrition_data = UserNutritionData.objects.get(user=request.user)
+    except UserNutritionData.DoesNotExist:
+        nutrition_data = UserNutritionData(user=request.user)
+
+    if request.method == "GET":
+        serializer = UserNutritionDataSerializer(nutrition_data)
+        return Response(serializer.data)
+
+    elif request.method == "PUT":
+        serializer = UserNutritionDataSerializer(nutrition_data, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
